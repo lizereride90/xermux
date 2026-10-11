@@ -78,7 +78,14 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     override fun onColorsChanged(session: TerminalSession?) {}
     override fun onTerminalCursorStateChange(state: Boolean) {}
     override fun getTerminalCursorStyle(): Int = 0
+    override fun setTerminalShellPid(session: TerminalSession?, pid: Int) {}
 
-    // termux lib wants this for its own error logging, just ignore it here
+    // termux lib wants a bunch of log sinks, don't need them in the UI
     override fun logError(tag: String, message: String) {}
+    override fun logWarn(tag: String, message: String) {}
+    override fun logInfo(tag: String, message: String) {}
+    override fun logDebug(tag: String, message: String) {}
+    override fun logVerbose(tag: String, message: String) {}
+    override fun logStackTraceWithMessage(tag: String, message: String, e: Exception?) {}
+    override fun logStackTrace(tag: String, e: Exception?) {}
 }
