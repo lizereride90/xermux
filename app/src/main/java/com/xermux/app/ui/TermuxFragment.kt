@@ -78,7 +78,6 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     override fun onColorsChanged(session: TerminalSession?) {}
     override fun onTerminalCursorStateChange(state: Boolean) {}
     override fun getTerminalCursorStyle(): Int = 0
-    override fun setTerminalShellPid(session: TerminalSession?, pid: Int) {}
 
     // termux lib wants a bunch of log sinks, don't need them in the UI
     override fun logError(tag: String, message: String) {}
