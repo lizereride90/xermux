@@ -21,10 +21,13 @@ jobs:
           cache: gradle
 
       # runners already ship the sdk, no need for the setup-android action
-      # (that one broke asking for the old "tools" package)
+      # (that one broke asking for the old "tools" package).
+      # sdkmanager isn't on PATH by default so I point at it directly.
       - name: Install platform + build-tools
         run: |
           echo "sdk is at $ANDROID_HOME"
+          ls "$ANDROID_HOME/cmdline-tools"
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
