@@ -1,44 +1,58 @@
-# Xermux — Termux + Termux:X11 All-in-One
+# xermux
 
-Android app with **2 menus**:
-- **Termux** — inbuilt terminal using official `terminal-view` / `terminal-emulator` / `termux-shared` libs (`0.118.0` via JitPack). Zero download by default (`/system/bin/sh`), bootstrap-ready (`files/usr`).
-- **Termux X11** — embedded viewer + `XServerService`. Companion mode works now (`pkg i x11-repo && pkg i termux-x11-nightly && termux-x11 :0`); drop `libXlorie.so` from `termux/termux-x11` into `app/src/main/jniLibs/<abi>/` later for zero-setup native mode (stub `nativeStart/nativeStop` already wired).
+Got tired of juggling two apps so I smashed them together — Termux + Termux:X11 in one apk with a bottom bar to flip between them.
 
-No local compile needed — **GitHub Actions builds the APK**.
+Two tabs, that's it:
+- **Termux** — a real terminal inside the app. Uses the actual termux libs (`terminal-view` / `terminal-emulator` 0.118.0 off JitPack), so it feels like termux and not some fake web shell. Opens `/system/bin/sh` straight away so there's nothing to download, and if you've got the bootstrap under `files/usr` it'll pick up bash instead.
+- **Termux X11** — viewer + start/stop for the X server. Right now it runs in companion mode (same flow as the official X11 app), native `libXlorie.so` support is stubbed in for later so I can drop the .so in without reworking the service.
 
-## Get the APK
-1. Push to `main` (or Run workflow manually).
-2. Actions tab → latest run → Artifacts → `xermux-debug-apk` / `xermux-release-apk`.
+I don't build locally much, Actions does it. Push to main and grab the apk from the run.
 
-## Optimisations included
-- R8 full mode + resource shrinking (`shrinkResources`, `resConfigs en`), `proguard-android-optimize.txt`, log stripping.
-- Single shared `bgExecutor` (4 threads), session reuse across menu switches (show/hide fragments, not replace).
-- Transcript capped, `largeHeap=false`, `hardwareAccelerated=true`, foreground service only while X11 connected.
-- Gradle: parallel, caching, configuration-cache, ABI universal APK, `useLegacyPackaging` for Termux `.so`.
-- Guava conflict fixed via `listenablefuture:9999.0-empty-to-avoid-conflict-with-guava` (per Termux wiki).
-- `minSdk 26` (X11 requirement), `target/compile 34`, ViewBinding, lifecycle-aware.
+## where's my apk
 
-## Project layout
+Actions tab -> newest "Build Xermux APK" run -> bottom of the page, Artifacts:
+- `xermux-debug-apk` for testing
+- `xermux-release-apk` (R8'd, smaller)
+
+## stuff I did to keep it light
+
+Not going to pretend I benchmarked all of this, just things that helped on my old phone:
+
+- R8 + shrinkResources on release, only kept `en` resources. debug stays unshrunk so stacktraces are readable.
+- One shared thread pool (4 threads) instead of spawning threads per session. Low-ram phones hated the old way.
+- Fragments get added once and hidden/shown. Replacing them kept killing the shell every time I switched tabs, which was annoying.
+- Transcript capped so `cat` on a huge file doesn't eat all memory. `largeHeap` left off on purpose.
+- X11 service only goes foreground while the server is actually up. Stop means really stop — no lingering wakelock.
+- Gradle parallel + cache + config cache on. Universal apk for now, can split by abi later if size becomes a problem.
+- That weird guava `listenablefuture:9999.0-empty...` line is straight from the termux wiki, without it the build blows up with duplicate class errors.
+
+minSdk 26 (X11 won't go lower), target/compile 34. ViewBinding because findViewById everywhere got old.
+
+## layout
+
 ```
 app/src/main/java/com/xermux/app/
-  XermuxApp.kt               app-wide executor + prefs
-  ui/MainActivity.kt         bottom nav: Termux | X11 (show/hide, state-safe)
-  ui/TermuxFragment.kt       TerminalView + session lifecycle
-  ui/X11Fragment.kt          resolution spinner, start/stop, help
-  termux/TermuxRunner.kt     shell/bootstrap session factory
-  termux/TermuxSessionService.kt  keeps shell alive across menus
-  x11/XServerService.kt      X server lifecycle + native hook
-  util/Prefs.kt              resolution/shell/bootstrap prefs
+  XermuxApp.kt              app class, holds the thread pool + prefs
+  ui/MainActivity.kt        bottom nav, keeps both fragments alive
+  ui/TermuxFragment.kt      terminalview wiring
+  ui/X11Fragment.kt         spinner + start/stop buttons
+  termux/TermuxRunner.kt    builds the TerminalSession (shell + env)
+  termux/TermuxSessionService.kt  stub service so the session has somewhere to live
+  x11/XServerService.kt     start/stop logic, tries native lib then falls back
+  util/Prefs.kt             tiny sharedprefs wrapper
 ```
 
-## Build locally (optional)
+## building on your own machine if you want
+
 ```
 ./gradlew assembleDebug
-# needs Android SDK 34 + JDK 17
 ```
 
-## Roadmap
-- [ ] Bundle `bootstrap-*.zip` via `downloadBootstraps` task for offline Termux
-- [ ] Bundle `libXlorie.so` + `LorieView` for true embedded X (no companion pkg)
-- [ ] Extra-keys bar + Termux:API intents
-- [ ] Signed release with `apksigner` + Play publishing workflow
+Needs JDK 17 + Android SDK 34. First build pulls the termux stuff from JitPack, takes a bit.
+
+## still to do
+
+- [ ] bundle the bootstrap zips so termux works fully offline (right now it leans on system shell until bootstrap is there)
+- [ ] actually bundle libXlorie + LorieView instead of companion mode
+- [ ] extra keys bar, the terminal really needs one
+- [ ] signed release + play track. debug signing for now.

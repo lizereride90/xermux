@@ -6,17 +6,14 @@ import androidx.fragment.app.commit
 import com.xermux.app.R
 import com.xermux.app.databinding.ActivityMainBinding
 
-/**
- * 2 menus: Termux | Termux X11.
- * OPTIMISATION: fragments are added once and shown/hidden (not replaced)
- * so the terminal session and X11 surface survive menu switches.
- */
+// bottom bar with the two tabs. learned the hard way: don't `replace()`
+// here, it nukes the terminal every time you switch. add once, hide/show.
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+
     private val termuxFragment = TermuxFragment()
     private val x11Fragment = X11Fragment()
-    private var activeTag = "termux"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,23 +30,25 @@ class MainActivity : AppCompatActivity() {
 
         binding.bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.menu_termux -> show("termux")
-                R.id.menu_x11 -> show("x11")
+                R.id.menu_termux -> showTermux()
+                R.id.menu_x11 -> showX11()
                 else -> false
             }
         }
     }
 
-    private fun show(tag: String): Boolean {
-        activeTag = tag
+    private fun showTermux(): Boolean {
         supportFragmentManager.commit {
-            if (tag == "termux") {
-                show(supportFragmentManager.findFragmentByTag("termux") ?: termuxFragment)
-                hide(supportFragmentManager.findFragmentByTag("x11") ?: x11Fragment)
-            } else {
-                show(supportFragmentManager.findFragmentByTag("x11") ?: x11Fragment)
-                hide(supportFragmentManager.findFragmentByTag("termux") ?: termuxFragment)
-            }
+            show(supportFragmentManager.findFragmentByTag("termux") ?: termuxFragment)
+            hide(supportFragmentManager.findFragmentByTag("x11") ?: x11Fragment)
+        }
+        return true
+    }
+
+    private fun showX11(): Boolean {
+        supportFragmentManager.commit {
+            show(supportFragmentManager.findFragmentByTag("x11") ?: x11Fragment)
+            hide(supportFragmentManager.findFragmentByTag("termux") ?: termuxFragment)
         }
         return true
     }

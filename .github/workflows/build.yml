@@ -1,5 +1,6 @@
 name: Build Xermux APK
 
+# just builds the apk so I don't have to mess with Android Studio every time
 on:
   push:
     branches: [ main ]
@@ -19,31 +20,31 @@ jobs:
           java-version: 17
           cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # runners already ship the sdk, no need for the setup-android action
+      # (that one broke asking for the old "tools" package)
+      - name: Install platform + build-tools
+        run: |
+          echo "sdk is at $ANDROID_HOME"
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Install Gradle 8.7
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O /tmp/gradle.zip
-          sudo mkdir -p /opt/gradle
           sudo unzip -q /tmp/gradle.zip -d /opt
           echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
+          gradle --version
 
-      - name: Accept licenses / install platform
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
 
-      - name: Build debug APK (no local compile needed)
-        run: gradle assembleDebug --stacktrace --info
-
-      - name: Upload APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: xermux-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
-      - name: Build release APK (unsigned, R8 optimized)
+      - name: Build release APK
         run: gradle assembleRelease --stacktrace
 
       - name: Upload release APK

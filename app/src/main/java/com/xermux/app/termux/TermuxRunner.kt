@@ -6,17 +6,10 @@ import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 import java.io.File
 
-/**
- * Creates TerminalSessions backed by the inbuilt Termux emulator lib.
- * Default: /system/bin/sh (zero download). If bootstrap is installed under
- * files/usr, uses <filesDir>/usr/bin/login shell instead.
- *
- * OPTIMISATION: transcript capped at 2000 lines, single-thread executor,
- * cwd = app private files dir (no storage permission needed).
- */
+// builds the shell session. keeps it simple:
+// no bootstrap yet -> plain /system/bin/sh so the app works out of the box.
+// bootstrap present (files/usr/bin/bash) -> use that with -l.
 object TermuxRunner {
-
-    const val TRANSCRIPT_ROWS = 2000
 
     fun createSession(
         context: Context,
@@ -26,13 +19,13 @@ object TermuxRunner {
         val filesDir = context.filesDir.absolutePath
         val cwd = File(filesDir).apply { mkdirs() }.absolutePath
 
-        val executable = if (File("$filesDir/usr/bin/bash").canExecute()) {
-            "$filesDir/usr/bin/bash -l"
-        } else {
-            shell
-        }
-        val parts = executable.split(" ")
-        val argv = (parts + emptyArray<String>()).toTypedArray()
+        val bash = File("$filesDir/usr/bin/bash")
+        val cmd = if (bash.canExecute()) "${bash.absolutePath} -l" else shell
+        val argv = cmd.split(" ").toTypedArray()
+
+        // private dirs only, no storage permission dance
+        File("$filesDir/home").mkdirs()
+        File("$filesDir/tmp").mkdirs()
 
         val env = arrayOf(
             "TERM=xterm-256color",
@@ -41,8 +34,6 @@ object TermuxRunner {
             "TMPDIR=$filesDir/tmp",
             "LANG=C.UTF-8"
         )
-        File("$filesDir/home").mkdirs()
-        File("$filesDir/tmp").mkdirs()
 
         return TerminalSession(
             argv[0],

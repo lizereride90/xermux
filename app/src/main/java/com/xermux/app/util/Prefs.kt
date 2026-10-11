@@ -3,6 +3,7 @@ package com.xermux.app.util
 import android.content.Context
 import androidx.core.content.edit
 
+// nothing fancy, just so I'm not scattering "getString" calls everywhere
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("xermux", Context.MODE_PRIVATE)
 
@@ -10,6 +11,7 @@ class Prefs(context: Context) {
         get() = sp.getString("x_resolution", "1280x720") ?: "1280x720"
         set(v) = sp.edit { putString("x_resolution", v) }
 
+    // touchpad vs touchscreen, whatever the spinner picked
     var xTouchMode: String
         get() = sp.getString("x_touch_mode", "touchpad") ?: "touchpad"
         set(v) = sp.edit { putString("x_touch_mode", v) }

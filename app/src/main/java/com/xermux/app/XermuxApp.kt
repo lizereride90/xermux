@@ -7,8 +7,8 @@ import java.util.concurrent.Executors
 
 class XermuxApp : Application() {
 
-    // OPTIMISATION: single shared background pool for shell + X11 tasks.
-    // Avoids spawning a thread per session which kills low-RAM devices.
+    // one pool for everything (shell startups, x11 bits). used to
+    // spin up threads everywhere and it showed on cheap devices.
     val bgExecutor by lazy { Executors.newFixedThreadPool(4) }
 
     lateinit var prefs: Prefs
@@ -18,16 +18,11 @@ class XermuxApp : Application() {
         super.onCreate()
         prefs = Prefs(this)
 
+        // catch disk/network on main thread while I'm still developing
         if (BuildConfig.DEBUG) {
             StrictMode.setThreadPolicy(
                 StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build()
             )
         }
-    }
-
-    override fun onTrimMemory(level: Int) {
-        super.onTrimMemory(level)
-        // OPTIMISATION: drop transcript caches under pressure.
-        // Fragments observe this via ComponentCallbacks.
     }
 }

@@ -11,15 +11,13 @@ import com.xermux.app.XermuxApp
 import com.xermux.app.databinding.FragmentX11Binding
 import com.xermux.app.x11.XServerService
 
-/**
- * Menu 2: Termux X11. Embedded viewer + server controller.
- * OPTIMISATION: SurfaceView created once, hardware-accelerated, server runs
- * in foreground service only while connected; resolution switch reuses service.
- */
+// the x11 tab. spinner for resolution, start/stop, and a little log
+// so you can see what happened without digging in logcat.
 class X11Fragment : Fragment() {
 
     private var _binding: FragmentX11Binding? = null
     private val binding get() = _binding!!
+
     private val resolutions = listOf("800x600", "1024x768", "1280x720", "1920x1080")
 
     override fun onCreateView(
@@ -31,6 +29,7 @@ class X11Fragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         val app = requireContext().applicationContext as XermuxApp
+
         binding.resSpinner.adapter = ArrayAdapter(
             requireContext(), android.R.layout.simple_spinner_dropdown_item, resolutions
         )
@@ -47,23 +46,28 @@ class X11Fragment : Fragment() {
                     putExtra("resolution", res)
                 }
             )
-            log("X server starting $res DISPLAY=:0 …\nRun in Termux menu: pkg i x11-repo && pkg i termux-x11-nightly && termux-x11 :0 &")
+            say("starting X on :0 ($res)…")
+            say("then in the Termux tab run:\n  pkg i x11-repo && pkg i termux-x11-nightly\n  termux-x11 :0 &")
         }
+
         binding.btnStop.setOnClickListener {
             requireContext().startService(
                 Intent(requireContext(), XServerService::class.java).apply {
                     action = XServerService.ACTION_STOP
                 }
             )
-            log("X server stopped.")
+            say("stopped.")
         }
-        binding.helpText.text = "1) Open Termux menu, install: pkg i x11-repo && pkg i termux-x11-nightly\n" +
-            "2) Start server here, then in Termux run: DISPLAY=:0 xfce4-session &\n" +
-            "3) Native libXlorie.so (from termux-x11) can be dropped into app/src/main/jniLibs later for zero-setup mode."
+
+        binding.helpText.text =
+            "quick version:\n" +
+                "1. hit Start above\n" +
+                "2. in the Termux tab: DISPLAY=:0 xfce4-session &\n" +
+                "later I want to bundle libXlorie.so so step 2 just works."
     }
 
-    private fun log(s: String) {
-        binding.logView.append("\n$s")
+    private fun say(line: String) {
+        binding.logView.append("\n$line")
     }
 
     override fun onDestroyView() {

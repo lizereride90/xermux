@@ -5,11 +5,9 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 
-/**
- * Holds the active TerminalSession so rotation / switching to X11 menu
- * does not kill the shell. Bound by TermuxFragment.
- * OPTIMISATION: single session reuse + foreground lifetime only while visible.
- */
+// sticking around so the shell has an owner when you flip to the X11 tab.
+// right now the fragment owns the actual session, this just gives it a
+// service to bind to later when I move session handling out of the UI.
 class TermuxSessionService : Service() {
 
     private val binder = LocalBinder()

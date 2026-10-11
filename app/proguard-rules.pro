@@ -1,13 +1,16 @@
-# Termux libs bring Guava ListenableFuture transitively - keep the empty stub, drop full Guava.
+# termux drags in guava stuff, this empty stub keeps the duplicate-class error away
 -keep class com.google.common.util.concurrent.ListenableFuture { *; }
 -dontwarn com.google.common.**
-# Terminal emulator uses reflection-free JNI, keep entry points
+
+# terminal libs are loaded via JNI-ish paths, don't let R8 eat them
 -keep class com.termux.terminal.** { *; }
 -keep class com.termux.view.** { *; }
-# Keep our services (referenced from manifest)
+
+# manifest references these by name
 -keep class com.xermux.app.termux.TermuxSessionService { *; }
 -keep class com.xermux.app.x11.XServerService { *; }
-# Optimisation: allow R8 full mode to strip logs in release
+
+# drop verbose logs in release, keep warnings/errors
 -assumenosideeffects class android.util.Log {
     public static *** d(...);
     public static *** v(...);

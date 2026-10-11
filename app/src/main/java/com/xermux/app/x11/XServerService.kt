@@ -9,29 +9,17 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.xermux.app.R
-import com.xermux.app.XermuxApp
 
-/**
- * Embedded Termux:X11 server controller.
- *
- * This skeleton runs the full X11 lifecycle (prefs, SurfaceView, start/stop)
- * and is where the native Xlorie .so from termux/termux-x11 drops in.
- * To keep GitHub Actions builds fast and NDK-free, native loading is
- * optional: if libXlorie.so is present it is used, otherwise the service
- * runs in "companion mode" (points the viewer at DISPLAY=:0 started from
- * the Termux shell, same as official Termux:X11 flow).
- *
- * OPTIMISATION: service is foreground only while X is connected, releases
- * WakeLock/surface immediately on stop, resolution change = surface recreate
- * instead of process restart.
- */
+// owns the X server lifecycle. tries the bundled native lib first,
+// falls back to companion mode (server started from the termux shell)
+// so the app still works before I get the .so bundled.
 class XServerService : Service() {
 
     companion object {
         const val ACTION_START = "com.xermux.app.x11.START"
         const val ACTION_STOP = "com.xermux.app.x11.STOP"
         const val CHANNEL = "x11"
+
         var running = false
             private set
         var display: String = ":0"
@@ -47,9 +35,8 @@ class XServerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
                 NotificationChannel(CHANNEL, "X11 Server", NotificationManager.IMPORTANCE_LOW)
             )
         }
@@ -67,25 +54,29 @@ class XServerService : Service() {
         if (running) return
         running = true
         display = ":0"
-        // Try native lib if a future build bundles it; never crash if absent.
+
+        // only there once someone drops libXlorie.so into jniLibs, ignore until then
         try {
             System.loadLibrary("Xlorie")
             nativeStart(resolution)
         } catch (_: UnsatisfiedLinkError) {
-            // Companion mode: X server started from Termux shell via `termux-x11 :0`.
         }
-        startForeground(1, notification("X server running $display ($resolution)"))
+
+        startForeground(1, note("X server up on $display ($resolution)"))
     }
 
     private fun stopX() {
         if (!running) return
-        try { nativeStop() } catch (_: UnsatisfiedLinkError) { }
+        try {
+            nativeStop()
+        } catch (_: UnsatisfiedLinkError) {
+        }
         running = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    private fun notification(text: String): Notification {
+    private fun note(text: String): Notification {
         return NotificationCompat.Builder(this, CHANNEL)
             .setContentTitle("Xermux X11")
             .setContentText(text)
@@ -94,7 +85,7 @@ class XServerService : Service() {
             .build()
     }
 
-    // Linked against libXlorie.so only when bundled (see termux/termux-x11 CmdEntryPoint).
+    // these exist in termux-x11's CmdEntryPoint, same signatures for later
     private external fun nativeStart(resolution: String)
     private external fun nativeStop()
 }

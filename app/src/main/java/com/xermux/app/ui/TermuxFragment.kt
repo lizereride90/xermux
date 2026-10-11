@@ -12,17 +12,15 @@ import com.xermux.app.XermuxApp
 import com.xermux.app.databinding.FragmentTermuxBinding
 import com.xermux.app.termux.TermuxRunner
 
-/**
- * Menu 1: Termux. Inbuilt terminal via official terminal-view lib.
- * OPTIMISATION: session created once per fragment lifetime, runs on
- * app-wide bgExecutor, transcript capped, view detaches on hide.
- */
+// the termux tab. creates the session once and re-attaches the view,
+// otherwise rotating the phone or switching tabs kills what you were doing.
 class TermuxFragment : Fragment(), TerminalSessionClient {
 
     private var _binding: FragmentTermuxBinding? = null
     private val binding get() = _binding!!
+
     private var session: TerminalSession? = null
-    private var terminalView: TerminalView? = null
+    private var termView: TerminalView? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -32,41 +30,47 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        terminalView = binding.terminalView
-        binding.btnNewSession.setOnClickListener { restartSession() }
+        termView = binding.terminalView
+
+        binding.btnNewSession.setOnClickListener { startShell() }
         binding.btnClear.setOnClickListener { session?.reset() }
-        if (session == null) restartSession() else attach()
+
+        if (session == null) startShell() else attach()
     }
 
-    private fun restartSession() {
+    private fun startShell() {
         val app = requireContext().applicationContext as XermuxApp
+        binding.statusText.text = "starting shell…"
         app.bgExecutor.execute {
             session?.finishIfRunning()
-            val s = TermuxRunner.createSession(
-                requireContext(), this@TermuxFragment, app.prefs.termuxShell
+            val fresh = TermuxRunner.createSession(
+                requireContext(), this, app.prefs.termuxShell
             )
-            session = s
+            session = fresh
             activity?.runOnUiThread { attach() }
         }
     }
 
     private fun attach() {
         val s = session ?: return
-        terminalView?.attachSession(s)
-        binding.statusText.text = "shell attached — transcript capped, executor-shared"
+        termView?.attachSession(s)
+        binding.statusText.text = "shell attached"
     }
 
     override fun onDestroyView() {
-        terminalView?.attachSession(null)
+        // detach so the view doesn't leak, session itself stays alive
+        termView?.attachSession(null)
         _binding = null
         super.onDestroyView()
     }
 
-    // --- TerminalSessionClient (minimal, no-op where safe) ---
+    // don't need most of these yet, but the interface wants them
     override fun onTextChanged(session: TerminalSession?) {}
     override fun onTitleChanged(session: TerminalSession?) {}
     override fun onSessionFinished(session: TerminalSession?) {
-        activity?.runOnUiThread { binding.statusText.text = "session exited — tap New to restart" }
+        activity?.runOnUiThread {
+            binding.statusText.text = "shell exited — hit New to start another"
+        }
     }
     override fun onCopyTextToClipboard(session: TerminalSession?, text: String?) {}
     override fun onPasteTextFromClipboard(session: TerminalSession?) {}
