@@ -1,0 +1,36 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- terminal card -->
+    <path
+        android:fillColor="#10151C"
+        android:pathData="M22,32 h64 a8,8 0 0 1 8,8 v40 a8,8 0 0 1 -8,8 h-64 a8,8 0 0 1 -8,-8 v-40 a8,8 0 0 1 8,-8 z" />
+
+    <!-- prompt chevron -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#4ADE80"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M31,50 l10,8 l-10,8" />
+
+    <!-- cursor block -->
+    <path
+        android:fillColor="#4ADE80"
+        android:pathData="M47,60 h12 v6 h-12 z" />
+
+    <!-- little x11 badge -->
+    <path
+        android:fillColor="#E86A2C"
+        android:pathData="M72,72 m-16,0 a16,16 0 1 0 32,0 a16,16 0 1 0 -32,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M65,65 l14,14 M79,65 l-14,14" />
+</vector>

@@ -38,6 +38,19 @@ jobs:
           echo "/opt/gradle-8.7/bin" >> $GITHUB_PATH
           gradle --version
 
+      # real key when the repo secrets exist, debug signing otherwise.
+      # either way the apk comes out signed + installable.
+      - name: Restore release keystore
+        env:
+          KEY_B64: ${{ secrets.XERMUX_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEY_B64" ]; then
+            echo "$KEY_B64" | base64 -d > release.keystore
+            echo "real key restored"
+          else
+            echo "no key secret set, release will borrow debug signing"
+          fi
+
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
 
@@ -48,7 +61,16 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Build release APK
+        env:
+          XERMUX_KEYSTORE_PASSWORD: ${{ secrets.XERMUX_KEYSTORE_PASSWORD }}
+          XERMUX_KEY_ALIAS: ${{ secrets.XERMUX_KEY_ALIAS }}
+          XERMUX_KEY_PASSWORD: ${{ secrets.XERMUX_KEY_PASSWORD }}
         run: gradle assembleRelease --stacktrace
+
+      # sanity check the signature so a broken/unsigned apk never ships quietly
+      - name: Verify release signature
+        run: |
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs app/build/outputs/apk/release/*.apk
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4

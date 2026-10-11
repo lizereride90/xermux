@@ -4,12 +4,14 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import androidx.fragment.app.Fragment
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 import com.termux.view.TerminalView
 import com.xermux.app.XermuxApp
 import com.xermux.app.databinding.FragmentTermuxBinding
+import com.xermux.app.termux.BootstrapInstaller
 import com.xermux.app.termux.TermuxRunner
 
 // the termux tab. creates the session once and re-attaches the view,
@@ -21,6 +23,15 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
 
     private var session: TerminalSession? = null
     private var termView: TerminalView? = null
+
+    // extra keys bar is built in code, easier to tweak than xml
+    private val extraKeys = listOf(
+        "ESC", "TAB", "CTRL", "ALT", "|", "-", "/", "~", ".",
+        "\"", "'", "$", "←", "→", "↑", "↓", "HOME", "END", "PGUP", "PGDN", "^C", "^D"
+    )
+    private val keyButtons = mutableMapOf<String, Button>()
+    private var ctrlHeld = false
+    private var altHeld = false
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -35,7 +46,118 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
         binding.btnNewSession.setOnClickListener { startShell() }
         binding.btnClear.setOnClickListener { session?.reset() }
 
+        buildExtraKeys()
+        wireBootstrap()
+
         if (session == null) startShell() else attach()
+    }
+
+    private fun buildExtraKeys() {
+        binding.extraKeysRow.removeAllViews()
+        keyButtons.clear()
+        for (label in extraKeys) {
+            val b = Button(requireContext(), null, android.R.attr.buttonStyleSmall).apply {
+                text = label
+                minWidth = 0
+                minimumWidth = 0
+                setPadding(20, 0, 20, 0)
+                setOnClickListener { pressExtra(label) }
+            }
+            keyButtons[label] = b
+            binding.extraKeysRow.addView(b)
+        }
+        refreshToggles()
+    }
+
+    private fun refreshToggles() {
+        keyButtons["CTRL"]?.isActivated = ctrlHeld
+        keyButtons["ALT"]?.isActivated = altHeld
+        // cheap highlight so you can tell the modifier is armed
+        keyButtons["CTRL"]?.alpha = if (ctrlHeld) 1.0f else 0.6f
+        keyButtons["ALT"]?.alpha = if (altHeld) 1.0f else 0.6f
+    }
+
+    private fun pressExtra(label: String) {
+        val s = session ?: return
+        when (label) {
+            "CTRL" -> {
+                ctrlHeld = !ctrlHeld
+                refreshToggles()
+                return
+            }
+            "ALT" -> {
+                altHeld = !altHeld
+                refreshToggles()
+                return
+            }
+            "^C" -> {
+                writeBytes(s, byteArrayOf(0x03))
+                return
+            }
+            "^D" -> {
+                writeBytes(s, byteArrayOf(0x04))
+                return
+            }
+        }
+        var text = when (label) {
+            "ESC" -> "\u001B"
+            "TAB" -> "\t"
+            "←" -> "\u001B[D"
+            "→" -> "\u001B[C"
+            "↑" -> "\u001B[A"
+            "↓" -> "\u001B[B"
+            "HOME" -> "\u001B[H"
+            "END" -> "\u001B[F"
+            "PGUP" -> "\u001B[5~"
+            "PGDN" -> "\u001B[6~"
+            else -> label
+        }
+        // ctrl + letter -> control byte (c-a+1 etc), then disarm
+        if (ctrlHeld && text.length == 1 && text[0].isLetter()) {
+            val c = text[0].lowercaseChar()
+            writeBytes(s, byteArrayOf((c - 'a' + 1).toByte()))
+            ctrlHeld = false
+            refreshToggles()
+            return
+        }
+        if (altHeld) {
+            text = "\u001B$text"
+            altHeld = false
+            refreshToggles()
+        }
+        writeBytes(s, text.toByteArray(Charsets.UTF_8))
+    }
+
+    private fun writeBytes(s: TerminalSession, b: ByteArray) {
+        s.write(b, 0, b.size)
+    }
+
+    private fun wireBootstrap() {
+        val installer = BootstrapInstaller(requireContext())
+        if (installer.isInstalled()) {
+            binding.bootstrapStatus.text = "full linux ready"
+            binding.btnBootstrap.visibility = View.GONE
+        } else {
+            binding.bootstrapStatus.text = "basic shell — grab the full linux (~100MB)"
+            binding.btnBootstrap.setOnClickListener { btn ->
+                btn.isEnabled = false
+                installer.installAsync(object : BootstrapInstaller.Listener {
+                    override fun onStatus(line: String) {
+                        activity?.runOnUiThread { binding.bootstrapStatus.text = line }
+                    }
+
+                    override fun onDone(ok: Boolean) {
+                        activity?.runOnUiThread {
+                            btn.isEnabled = true
+                            if (ok) {
+                                binding.btnBootstrap.visibility = View.GONE
+                                startShell()
+                            }
+                        }
+                    }
+                })
+            }
+        }
     }
 
     private fun startShell() {
@@ -69,7 +191,7 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     override fun onTitleChanged(session: TerminalSession?) {}
     override fun onSessionFinished(session: TerminalSession?) {
         activity?.runOnUiThread {
-            binding.statusText.text = "shell exited — hit New to start another"
+            _binding?.statusText?.text = "shell exited — hit New to start another"
         }
     }
     override fun onCopyTextToClipboard(session: TerminalSession?, text: String?) {}
