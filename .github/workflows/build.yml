@@ -36,6 +36,19 @@ jobs:
       - name: Build debug APKs (Termux + X11, bootstrap included)
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Show failing native compile command
+        if: failure()
+        run: |
+          F=$(find lorie -name compile_commands.json | head -1)
+          echo "using $F"
+          python3 -c "
+          import json,sys
+          db=json.load(open(sys.argv[1]))
+          for e in db:
+            if 'libfontenc/src/fontenc.c' in e['file']:
+              print(e['command']); break
+          " "$F"
+
       - name: Verify signatures
         run: |
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs \
