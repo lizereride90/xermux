@@ -40,6 +40,7 @@ jobs:
         if: failure()
         run: |
           F=$(find lorie -name compile_commands.json | head -1)
+          if [ -z "$F" ]; then echo "no compile DB (configure failed first)"; exit 0; fi
           echo "using $F"
           python3 -c "
           import json,sys
