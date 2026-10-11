@@ -32,6 +32,9 @@ android {
         buildConfigField "String", "VERSION_NAME", "\"${termuxX11VersionName}\""
         buildConfigField "String", "COMMIT", "\"" + ("git rev-parse HEAD\n".execute().getText().trim() ?: (System.getenv('CURRENT_COMMIT') ?: "NO_COMMIT")) + "\""
         buildConfigField "String", "APPLICATION_ID", "\"${hostApplicationId}\""
+        // xermux: same flavour switch the termux app module reads from env,
+        // mirrored here since this library can't see the app's BuildConfig
+        buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + (System.getenv("TERMUX_PACKAGE_VARIANT") ?: "apt-android-7") + "\""
 
         consumerProguardFiles 'proguard-rules.pro'
     }
@@ -50,6 +53,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.4.20"
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.11.0'
     implementation 'androidx.preference:preference:1.2.1'
+    // xermux: app init (bootstrap variant, shell manager, properties) lives in termux-shared
+    implementation project(':termux-shared')
     compileOnly project(':shell-loader:stub')
 }
 afterEvaluate {

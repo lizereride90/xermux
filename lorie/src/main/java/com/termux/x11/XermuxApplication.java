@@ -5,6 +5,7 @@ import static com.termux.x11.CmdEntryPoint.ACTION_START;
 import static com.termux.x11.LoriePreferences.ACTION_PREFERENCES_CHANGED;
 
 import android.annotation.SuppressLint;
+import android.app.Application;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -24,8 +25,18 @@ import android.view.WindowManager;
 
 import androidx.core.app.NotificationCompat;
 
-import com.termux.R;
-import com.termux.app.TermuxApplication;
+import com.termux.shared.errors.Error;
+import com.termux.shared.logger.Logger;
+import com.termux.shared.termux.TermuxBootstrap;
+import com.termux.shared.termux.TermuxConstants;
+import com.termux.shared.termux.crash.TermuxCrashUtils;
+import com.termux.shared.termux.file.TermuxFileUtils;
+import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
+import com.termux.shared.termux.settings.properties.TermuxAppSharedProperties;
+import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
+import com.termux.shared.termux.shell.am.TermuxAmSocketServer;
+import com.termux.shared.termux.shell.TermuxShellManager;
+import com.termux.shared.termux.theme.TermuxThemeUtils;
 import com.termux.x11.input.TouchInputHandler;
 
 import java.lang.ref.WeakReference;
@@ -33,12 +44,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * One application class for the merged apk. Runs the normal Termux init first
- * (via TermuxApplication), then the X11 side init that used to live in a
- * separate app. Lives in com.termux.x11 on purpose so it can keep touching
- * MainActivity's package-private bits like before.
+ * One application class for the merged apk. First runs the normal Termux
+ * startup (same steps as TermuxApplication — kept in sync by hand, it lives
+ * in the app module where this library can't reach it), then the X11 side
+ * init (prefs, notification channel, server broadcasts).
+ *
+ * Lives in com.termux.x11 on purpose so it can keep touching MainActivity's
+ * package-private bits like the old LorieApp did.
  */
-public class XermuxApplication extends TermuxApplication {
+public class XermuxApplication extends Application {
+
+    private static final String LOG_TAG = "XermuxApplication";
+
     public static final int NOTIFICATION_ID = 7892;
 
     public final Prefs builtInPrefs = new Prefs();
@@ -57,6 +74,58 @@ public class XermuxApplication extends TermuxApplication {
     @SuppressLint("ObsoleteSdkInt")
     public void onCreate() {
         super.onCreate();
+
+        Context context = getApplicationContext();
+
+        // --- Termux half (mirrors TermuxApplication.onCreate) ---
+
+        // Set crash handler for the app
+        TermuxCrashUtils.setDefaultCrashHandler(this);
+
+        // Set log config for the app
+        setLogConfig(context);
+
+        Logger.logDebug("Starting Application");
+
+        // Set TermuxBootstrap.TERMUX_APP_PACKAGE_MANAGER and TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT
+        TermuxBootstrap.setTermuxPackageManagerAndVariant(BuildConfig.TERMUX_PACKAGE_VARIANT);
+
+        // Init app wide SharedProperties loaded from termux.properties
+        TermuxAppSharedProperties properties = TermuxAppSharedProperties.init(context);
+
+        // Init app wide shell manager
+        TermuxShellManager shellManager = TermuxShellManager.init(context);
+
+        // Set NightMode.APP_NIGHT_MODE
+        TermuxThemeUtils.setAppNightMode(properties.getNightMode());
+
+        // Check and create termux files directory. If failed to access it like in case of secondary
+        // user or external sd card installation, then don't run files directory related code
+        Error error = TermuxFileUtils.isTermuxFilesDirectoryAccessible(this, true, true);
+        boolean isTermuxFilesDirectoryAccessible = error == null;
+        if (isTermuxFilesDirectoryAccessible) {
+            Logger.logInfo(LOG_TAG, "Termux files directory is accessible");
+
+            error = TermuxFileUtils.isAppsTermuxAppDirectoryAccessible(true, true);
+            if (error != null) {
+                Logger.logErrorExtended(LOG_TAG, "Create apps/termux-app directory failed\n" + error);
+                return;
+            }
+
+            // Setup termux-am-socket server
+            TermuxAmSocketServer.setupTermuxAmSocketServer(context);
+        } else {
+            Logger.logErrorExtended(LOG_TAG, "Termux files directory is not accessible\n" + error);
+        }
+
+        // Init TermuxShellEnvironment constants and caches after everything has been setup including termux-am-socket server
+        TermuxShellEnvironment.init(this);
+
+        if (isTermuxFilesDirectoryAccessible) {
+            TermuxShellEnvironment.writeEnvironmentToFile(this);
+        }
+
+        // --- X11 half (what LorieApp.onCreate used to do) ---
 
         // our package id IS com.termux, so no createPackageContext dance needed
         Context prefsCtx = this;
@@ -90,6 +159,15 @@ public class XermuxApplication extends TermuxApplication {
                 .setShowWhen(false)
                 .setColor(0xFF607D8B)
                 .build();
+    }
+
+    public static void setLogConfig(Context context) {
+        Logger.setDefaultLogTag(TermuxConstants.TERMUX_APP_NAME);
+
+        // Load the log level from shared preferences and set it to the {@link Logger.CURRENT_LOG_LEVEL}
+        TermuxAppSharedPreferences preferences = TermuxAppSharedPreferences.build(context);
+        if (preferences == null) return;
+        preferences.setLogLevel(null, preferences.getLogLevel());
     }
 
     /** Picks builtInPrefs or secondaryPrefs depending on which display ctx's window is on. */
