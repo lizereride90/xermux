@@ -46,7 +46,7 @@ android {
         cmake {
             // xermux: leave the compile DB behind so native failures can be
             // diagnosed from CI logs (compile_commands.json in .cxx)
-            arguments "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+            arguments.add("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON")
         }
     }
     packagingOptions.jniLibs.useLegacyPackaging false
