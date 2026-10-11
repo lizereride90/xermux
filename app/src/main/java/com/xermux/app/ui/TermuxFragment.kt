@@ -161,16 +161,14 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     }
 
     private fun startShell() {
+        // TerminalSession makes its own Handler inside the constructor, so this
+        // MUST run on the main thread (has a Looper). used to do it on bgExecutor
+        // and that's the "Can't create handler inside thread" crash.
         val app = requireContext().applicationContext as XermuxApp
         binding.statusText.text = "starting shell…"
-        app.bgExecutor.execute {
-            session?.finishIfRunning()
-            val fresh = TermuxRunner.createSession(
-                requireContext(), this, app.prefs.termuxShell
-            )
-            session = fresh
-            activity?.runOnUiThread { attach() }
-        }
+        session?.finishIfRunning()
+        session = TermuxRunner.createSession(requireContext(), this, app.prefs.termuxShell)
+        attach()
     }
 
     private fun attach() {
