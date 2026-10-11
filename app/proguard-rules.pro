@@ -5,6 +5,8 @@
 # terminal libs are loaded via JNI-ish paths, don't let R8 eat them
 -keep class com.termux.terminal.** { *; }
 -keep class com.termux.view.** { *; }
+# termux-shared gets touched through reflection in places, keep it whole
+-keep class com.termux.shared.** { *; }
 
 # manifest references these by name
 -keep class com.xermux.app.termux.TermuxSessionService { *; }

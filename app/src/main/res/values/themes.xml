@@ -1,5 +1,8 @@
 <resources>
+    <!-- hardcoded on purpose: I used a system_accent color here before and it
+         doesn't exist below Android 12, instant crash on older phones -->
     <style name="Theme.Xermux" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@android:color/system_accent1_200</item>
+        <item name="colorPrimary">#4ADE80</item>
+        <item name="colorOnPrimary">#0B1F14</item>
     </style>
 </resources>

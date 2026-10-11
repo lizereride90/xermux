@@ -2,6 +2,7 @@ package com.xermux.app.ui
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import com.xermux.app.R
 import com.xermux.app.databinding.ActivityMainBinding
@@ -11,9 +12,8 @@ import com.xermux.app.databinding.ActivityMainBinding
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-
-    private val termuxFragment = TermuxFragment()
-    private val x11Fragment = X11Fragment()
+    private lateinit var termuxFragment: Fragment
+    private lateinit var x11Fragment: Fragment
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,10 +21,29 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         if (savedInstanceState == null) {
+            termuxFragment = TermuxFragment()
+            x11Fragment = X11Fragment()
             supportFragmentManager.commit {
                 add(R.id.container, termuxFragment, "termux")
                 add(R.id.container, x11Fragment, "x11")
                 hide(x11Fragment)
+            }
+        } else {
+            // activity got recreated — reuse the fragments android kept,
+            // don't blindly add new ones on top
+            val keptTermux = supportFragmentManager.findFragmentByTag("termux")
+            val keptX11 = supportFragmentManager.findFragmentByTag("x11")
+            if (keptTermux == null || keptX11 == null) {
+                termuxFragment = TermuxFragment()
+                x11Fragment = X11Fragment()
+                supportFragmentManager.commit {
+                    add(R.id.container, termuxFragment, "termux")
+                    add(R.id.container, x11Fragment, "x11")
+                    hide(x11Fragment)
+                }
+            } else {
+                termuxFragment = keptTermux
+                x11Fragment = keptX11
             }
         }
 
@@ -39,16 +58,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun showTermux(): Boolean {
         supportFragmentManager.commit {
-            show(supportFragmentManager.findFragmentByTag("termux") ?: termuxFragment)
-            hide(supportFragmentManager.findFragmentByTag("x11") ?: x11Fragment)
+            show(termuxFragment)
+            hide(x11Fragment)
         }
         return true
     }
 
     private fun showX11(): Boolean {
         supportFragmentManager.commit {
-            show(supportFragmentManager.findFragmentByTag("x11") ?: x11Fragment)
-            hide(supportFragmentManager.findFragmentByTag("termux") ?: termuxFragment)
+            show(x11Fragment)
+            hide(termuxFragment)
         }
         return true
     }

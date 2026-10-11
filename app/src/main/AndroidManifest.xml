@@ -42,5 +42,13 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <!-- crash screen: own process + framework theme so it survives
+             whatever killed the main one (even our own theme) -->
+        <activity
+            android:name=".ui.CrashActivity"
+            android:exported="false"
+            android:process=":crash"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
     </application>
 </manifest>
