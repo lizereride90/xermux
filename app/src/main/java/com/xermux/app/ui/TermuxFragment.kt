@@ -1,14 +1,19 @@
 package com.xermux.app.ui
 
+import android.content.Context
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import androidx.fragment.app.Fragment
 import com.termux.terminal.TerminalSession
 import com.termux.terminal.TerminalSessionClient
 import com.termux.view.TerminalView
+import com.termux.view.TerminalViewClient
 import com.xermux.app.XermuxApp
 import com.xermux.app.databinding.FragmentTermuxBinding
 import com.xermux.app.termux.BootstrapInstaller
@@ -16,7 +21,7 @@ import com.xermux.app.termux.TermuxRunner
 
 // the termux tab. creates the session once and re-attaches the view,
 // otherwise rotating the phone or switching tabs kills what you were doing.
-class TermuxFragment : Fragment(), TerminalSessionClient {
+class TermuxFragment : Fragment(), TerminalSessionClient, TerminalViewClient {
 
     private var _binding: FragmentTermuxBinding? = null
     private val binding get() = _binding!!
@@ -42,6 +47,14 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         termView = binding.terminalView
+
+        // order matters here and I got burned by it twice:
+        // 1. setTextSize creates the view's renderer — without it the first
+        //    layout crashes in updateSize() on a null renderer.
+        // 2. the view client must be set before attachSession, attach calls
+        //    back into onEmulatorSet() immediately.
+        termView?.setTerminalViewClient(this)
+        termView?.setTextSize(14)
 
         binding.btnNewSession.setOnClickListener { startShell() }
         binding.btnClear.setOnClickListener { session?.reset() }
@@ -143,7 +156,7 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
                 btn.isEnabled = false
                 installer.installAsync(object : BootstrapInstaller.Listener {
                     override fun onStatus(line: String) {
-                        activity?.runOnUiThread { binding.bootstrapStatus.text = line }
+                        activity?.runOnUiThread { _binding?.bootstrapStatus?.text = line }
                     }
 
                     override fun onDone(ok: Boolean) {
@@ -174,6 +187,7 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     private fun attach() {
         val s = session ?: return
         termView?.attachSession(s)
+        termView?.requestFocus()
         binding.statusText.text = "shell attached"
     }
 
@@ -184,7 +198,8 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
         super.onDestroyView()
     }
 
-    // don't need most of these yet, but the interface wants them
+    // --- TerminalSessionClient, mostly no-ops ---
+
     override fun onTextChanged(session: TerminalSession?) {}
     override fun onTitleChanged(session: TerminalSession?) {}
     override fun onSessionFinished(session: TerminalSession?) {
@@ -207,4 +222,31 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     override fun logVerbose(tag: String, message: String) {}
     override fun logStackTraceWithMessage(tag: String, message: String, e: Exception?) {}
     override fun logStackTrace(tag: String, e: Exception?) {}
+
+    // --- TerminalViewClient ---
+
+    override fun onScale(scale: Float): Float = scale.coerceIn(0.5f, 3.0f)
+
+    override fun onSingleTapUp(e: MotionEvent) {
+        termView?.requestFocus()
+        val imm = requireContext().getSystemService(InputMethodManager::class.java)
+        imm.showSoftInput(termView, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    override fun shouldBackButtonBeMappedToEscape(): Boolean = true
+    override fun shouldEnforceCharBasedInput(): Boolean = false
+    override fun shouldUseCtrlSpaceWorkaround(): Boolean = false
+    override fun isTerminalViewSelected(): Boolean = true
+    override fun copyModeChanged(copyMode: Boolean) {}
+    override fun onKeyDown(keyCode: Int, e: KeyEvent, session: TerminalSession): Boolean = false
+    override fun onKeyUp(keyCode: Int, e: KeyEvent): Boolean = false
+    override fun onLongPress(event: MotionEvent): Boolean = false
+    override fun readControlKey(): Boolean = false
+    override fun readAltKey(): Boolean = false
+    override fun readShiftKey(): Boolean = false
+    override fun readFnKey(): Boolean = false
+    override fun onCodePoint(codePoint: Int, ctrlDown: Boolean, session: TerminalSession): Boolean = false
+    override fun onEmulatorSet() {
+        termView?.invalidate()
+    }
 }
