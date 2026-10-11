@@ -38,7 +38,7 @@ local.properties
 ehthumbs.db
 Thumbs.db
 
-# xermux: never commit signing keys
+# xermux: a future real release key lives here and must never be committed.
+# (upstream's own testkey_untrusted.jks stays tracked on purpose, debug
+# builds sign with it.)
 release.keystore
-*.jks
-*.keystore

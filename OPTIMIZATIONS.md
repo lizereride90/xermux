@@ -31,8 +31,9 @@ build pipeline. File paths are relative to repo root.
    compositing for the terminal and X11 surfaces, no CPU fallback.
 9. [xermux] `largeHeap=false` set explicitly (app manifest) — bounded heap,
    steadier GC, less low-memory-killer pressure.
-10. [xermux] Signing keys can never be committed (`.gitignore` covers
-    `release.keystore`, `*.jks`, `*.keystore`) — no key rotation surprises.
+10. [xermux] A future real release key (`release.keystore`) can never be
+    committed (`.gitignore`) — while upstream's own `testkey_untrusted.jks`
+    stays tracked on purpose, since debug builds sign with it.
 
 ## build + CI
 
