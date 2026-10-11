@@ -78,4 +78,7 @@ class TermuxFragment : Fragment(), TerminalSessionClient {
     override fun onColorsChanged(session: TerminalSession?) {}
     override fun onTerminalCursorStateChange(state: Boolean) {}
     override fun getTerminalCursorStyle(): Int = 0
+
+    // termux lib wants this for its own error logging, just ignore it here
+    override fun logError(tag: String, message: String) {}
 }

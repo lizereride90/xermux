@@ -22,7 +22,9 @@ class XServerService : Service() {
 
         var running = false
             private set
-        var display: String = ":0"
+        // called xDisplay because Service already has a `display` prop (type Display)
+        // and kotlin kept picking that one instead of ours
+        var xDisplay: String = ":0"
             private set
     }
 
@@ -53,7 +55,7 @@ class XServerService : Service() {
     private fun startX(resolution: String) {
         if (running) return
         running = true
-        display = ":0"
+        xDisplay = ":0"
 
         // only there once someone drops libXlorie.so into jniLibs, ignore until then
         try {
@@ -62,7 +64,7 @@ class XServerService : Service() {
         } catch (_: UnsatisfiedLinkError) {
         }
 
-        startForeground(1, note("X server up on $display ($resolution)"))
+        startForeground(1, note("X server up on $xDisplay ($resolution)"))
     }
 
     private fun stopX() {
